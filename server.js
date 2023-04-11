@@ -4,6 +4,10 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const date = require('date-and-time');
+const fileUpload = require('express-fileupload');
+const fs = require('fs');
+const path = require('path');
+
 const CLIENT_ID = "3a4fd049caab9bebc5a8";
 
 const connection = mysql.createConnection({
@@ -30,6 +34,7 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 app.use(express.static(__dirname + '/image'));
+app.use(fileUpload());
 app.use(session({
     secret: 'secret-key',
     resave: false,
@@ -78,7 +83,7 @@ app.post('/login', async (req, res) => {
 
 app.post('/register', (req, res) => {    
     var registerdate = date.format(new Date(), 'YYYY/MM/DD HH:mm:ss');
-    const { username, email,telefon,password,confirmPassword } = req.body;
+    const { username, email,telefon,password,confirmPassword,staj_Bitis } = req.body;
     if(password !== confirmPassword){
         res.redirect('/?error=password');
     }else{
@@ -95,7 +100,7 @@ app.post('/register', (req, res) => {
             }else{
                 console.log('Bu kullanıcı adı daha önce alınmamış');
                 const hashedPassword = await bcrypt.hash(password, 10);
-                const insertQuery = `INSERT INTO stajer_user (username, email, telefon, role, password, Registration_date,staj_bitis) VALUES ('${username}', '${email}', '${telefon}', '${role}', '${hashedPassword}', '${registerdate}','${registerdate}')`;
+                const insertQuery = `INSERT INTO stajer_user (username, email, telefon, role, password, staj_baslangic,staj_bitis) VALUES ('${username}', '${email}', '${telefon}', '${role}', '${hashedPassword}', '${registerdate}','${staj_Bitis}')`;
                 console.log(insertQuery);
                 connection.query(insertQuery, (err, result) => {
                     if (err) {
@@ -111,7 +116,7 @@ app.post('/register', (req, res) => {
                         role
                     };
                     req.session.user = user;
-                    res.redirect('/dashboard');
+                    res.redirect('/proje-ekle');
                 });
             }
         });
@@ -129,7 +134,7 @@ app.get('/dashboard', (req, res) => {
         res.redirect('/');
     } else {
         const projeListQuery = `SELECT * FROM stajer_project WHERE username = '${user.username}'`;
-        const stajBitisQuery = `SELECT Registration_date, staj_bitis FROM stajer_user WHERE username = '${user.username}'`;
+        const stajBitisQuery = `SELECT staj_baslangic, staj_bitis FROM stajer_user WHERE username = '${user.username}'`;
         const projeBitisQuery = `SELECT project_start_date,project_end_date FROM stajer_project WHERE username = '${user.username}'`;
 
         if (user.role === 'Stajyer') {
@@ -157,7 +162,7 @@ app.get('/dashboard', (req, res) => {
                             return;
                         }
                         const now = date.format(new Date(), 'YYYY/MM/DD');
-                        const projeBitis = date.format(new Date(now), 'YYYY/MM/DD'); // Hata var çözülecek
+                        const projeBitis = date.format(new Date(projeData[0].project_end_date), 'YYYY/MM/DD'); // Hata var çözülecek
                         const pdiffTime = Math.abs(new Date(now) - new Date(projeBitis));
                         const pdiffDays = Math.ceil(pdiffTime / (1000 * 60 * 60 * 24));
                         const projeProgress  =  Math.round((100 - (pdiffDays * 100) / 180));
@@ -217,8 +222,84 @@ app.post('/projects', (req, res) => {
     }
 });
 
+app.get('/project/:projeAdi', (req, res) => {
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const projeAdi = req.params.projeAdi;
+        const projeListQuery = `SELECT * FROM stajer_project WHERE username = '${user.username}' AND project_name = '${projeAdi}'`;
+        connection.query(projeListQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            const userFolder = __dirname + '/public/uploads/' + user.username;
+            fs.mkdir(userFolder, { recursive: true }, (err) => {
+                if (err) {
+                    console.error('Klasör oluşturma hatası', err);
+                    return;
+                }
+            });
+            const proje = result[0];
+            fs.readdir(userFolder, (err, files) => {
+                if (err) {
+                    console.error('Dosya okuma hatası', err);
+                    return;
+                }
+                const projeDosyalari = files.filter((file) => file.startsWith(projeAdi));
+                proje.dosyalar = projeDosyalari;
 
+            res.render('project', { user, proje, files });
 
+            });
+        });
+    }
+});
+
+app.post('/dosya-yukle', (req, res) => {
+    const projeAdi = req.body.projectName;
+    console.log(projeAdi);
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
+    } else {
+            
+        if (!req.files || !req.files.dosya) {
+        res.send('Dosya seçilmedi!');
+        return;
+        }
+        
+        const userFolder = __dirname + '/public/uploads/' + user.username;
+        if (!fs.existsSync(userFolder)) {
+            fs.mkdirSync(userFolder);
+        }
+        const dosyaYolu = `${userFolder}/${req.files.dosya.name}`;
+        const dosya = req.files.dosya;
+        dosya.mv(dosyaYolu, (err) => {
+        if (err) {
+            console.error(err);
+            res.status(500).send(err);
+            return;
+        }
+        res.redirect('/project/' + projeAdi);
+        });
+    }
+});
+
+app.get('/file/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const userFolder = __dirname + '/public/uploads/' + user.username;
+        const dosyaYolu = `${userFolder}/${dosyaAdi}`;
+        res.download(dosyaYolu);
+    }
+});
+
+  
 
 app.listen(3000, () => {
     console.log('Server 3000 portunda çalışıyor');
