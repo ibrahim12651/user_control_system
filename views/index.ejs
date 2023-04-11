@@ -47,7 +47,7 @@
                         </div>
                         <label for="telefon" class="form-label">Telefon NO:</label>
                         <div class="input-group mb-3">
-                          <input type="number" class="form-control" placeholder="Telefon NO" name="telefon"  required>
+                          <input type="text" class="form-control" placeholder="Telefon NO" name="telefon" maxlength="11"  required>
                         </div>
                         <label for="password" class="form-label">Parola:</label><br>
                         <div class="input-group mb-1">
@@ -56,6 +56,10 @@
                         <label for="password" class="form-label">Parolayı Onayla:</label><br>
                         <div class="input-group mb-1">
                             <input type="password" class="form-control" placeholder="Şifre" aria-label="Şifre" name="confirmPassword" required>
+                        </div>
+                        <label for="stajbitis">Staj Bitiş Tarihi: (Seçin)</label>
+                        <div class="input-group mb-3">
+                          <input type="date" class="form-control" name="staj_Bitis" required>
                         </div>
                         <div class="input-group my-3">
                             <button type="submit" class="btn btn-primary">Kayıt Ol</button>
