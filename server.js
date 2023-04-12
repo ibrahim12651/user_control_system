@@ -115,6 +115,11 @@ app.post('/register', (req, res) => {
                         password,
                         role
                     };
+                    const userFolder = __dirname + '/public/uploads/' + username;
+                    if (!fs.existsSync(userFolder)) {
+                        fs.mkdirSync(userFolder);
+                    }
+                    
                     req.session.user = user;
                     res.redirect('/proje-ekle');
                 });
@@ -155,6 +160,7 @@ app.get('/dashboard', (req, res) => {
                     const diffTime = Math.abs(new Date(now) - new Date(stajBitis));
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     const progress =  Math.round((100 - (diffDays * 100) / 180));
+ 
 
                     connection.query(projeBitisQuery, (err, projeData) => {
                         if (err) {
@@ -184,7 +190,7 @@ app.get('/dashboard', (req, res) => {
                 });
             });
         } else {
-            res.render('dashboard', { user, projeListesi: [] });
+            res.render('dashboard', { user, projeListesi: []  });
         }
     }
 });
@@ -242,24 +248,26 @@ app.get('/project/:projeAdi', (req, res) => {
                 }
             });
             const proje = result[0];
-            fs.readdir(userFolder, (err, files) => {
-                if (err) {
-                    console.error('Dosya okuma hatası', err);
-                    return;
-                }
-                const projeDosyalari = files.filter((file) => file.startsWith(projeAdi));
-                proje.dosyalar = projeDosyalari;
+            if (!proje) {
+                res.redirect('/dashboard');
+                return;
+            }
+                fs.readdir(userFolder, (err, files) => {
+                    if (err) {
+                        console.error('Dosya okuma hatası', err);
+                        return;
+                    }
+                    const projeDosyalari = files.filter((file) => file.startsWith(projeAdi));
+                    proje.dosyalar = projeDosyalari;
+                    res.render('project', { user, proje, files });
 
-            res.render('project', { user, proje, files });
-
-            });
+                });
         });
     }
 });
 
 app.post('/dosya-yukle', (req, res) => {
     const projeAdi = req.body.projectName;
-    console.log(projeAdi);
     const user = req.session.user;
     if (!user) {
         res.redirect('/');
@@ -299,7 +307,55 @@ app.get('/file/:dosyaAdi', (req, res) => {
     }
 });
 
-  
+app.get('/file/delete/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const userFolder = __dirname + '/public/uploads/' + user.username;
+        const dosyaYolu = `${userFolder}/${dosyaAdi}`;
+        fs.unlink(dosyaYolu, (err) => {
+            if (err) {
+                console.error('Dosya silme hatası', err);
+                return;
+            }
+            res.redirect('/dashboard');
+        });
+    }
+});
+
+app.post('/iletisim', (req, res) => {
+    const { adSoyad, email, konu, mesaj } = req.body;
+    const insertQuery = `INSERT INTO iletisim (adSoyad, email, konu, mesaj) VALUES ('${adSoyad}', '${email}', '${konu}', '${mesaj}')`;
+    connection.query(insertQuery, (err, result) => {
+        if (err) {
+            console.error('MySQL sorgu hatası', err);
+            return;
+        }
+        res.redirect('/');
+    });
+});
+
+app.get('/iletisim/', (req, res) => {
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const id = req.params.id;
+        const iletisimQuery = `SELECT * FROM iletisim WHERE id = '${id}'`;
+        connection.query(iletisimQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            const iletisim = result[0];
+            res.render('iletisim', { user, iletisim });
+        });
+    }
+});
+
+
 
 app.listen(3000, () => {
     console.log('Server 3000 portunda çalışıyor');
