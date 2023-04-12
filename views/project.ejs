@@ -24,7 +24,7 @@
             <a class="nav-link" href="#">Projeler(Github)</a>
           </li>
             <li class="nav-item">
-                <a class="nav-link" href="#">İletişim</a>
+                <a class="nav-link" href="/iletisim">İletişim</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="/logout">Çıkış Yap</a>
@@ -48,7 +48,7 @@
         <ul class="list-group">
           <% files.forEach(file => { %>
             <li class="list-group-item">
-              <a href="/file/<%= file %>"><%= file %></a>
+              <a href="/file/<%= file %>"><%= file %></a> <a href="/file/delete/<%= file %>" class="btn btn-danger btn-sm float-end">Sil</a>
             </li>
           <% }); %>
         </ul>

@@ -18,13 +18,13 @@
           <div class="collapse navbar-collapse" id="mobileactive">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
               <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="#">AnaSayfa</a>
+                <a class="nav-link active" aria-current="page" href="/dashboard">Anasayfa</a>
               </li>
               <li class="nav-item">
                 <a class="nav-link" href="#">Projeler(Github)</a>
               </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">İletişim</a>
+                    <a class="nav-link" href="/iletisim">İletişim</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/logout">Çıkış Yap</a>
@@ -82,10 +82,15 @@
               </div>
               <div class="card-body">
                 <h5 class="card-title">Proje Durumu</h5>
-                <p class="card-text">Projenin Kalan süresi <%= pdiffDays %></p>
+                <% if(pdiffDays > 0) { %>
+                <p class="card-text">Projenin Kalan süresi <%= pdiffDays %> gün</p>
                 <div class="progress" role="progressbar" aria-valuenow="<%= projeProgress %>" aria-valuemin="0" aria-valuemax="100">
                   <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" style="width: <%= projeProgress %>%"></div>
               </div>
+              
+              <% } else { %>
+                <p class="card-text">Proje süresi doldu</p> 
+              <% } %>
             </div>
           </div>
         </div>
