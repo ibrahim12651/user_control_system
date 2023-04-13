@@ -41,7 +41,6 @@ app.use(session({
     saveUninitialized: true,
 }));
 
-
 app.get('/', (req, res) => {
     const user = req.session.user;
 
@@ -55,6 +54,10 @@ app.get('/', (req, res) => {
     } else {
         res.render('index', { user, error: 'null' });
     }
+});
+app.get('/joinorregister', (req, res) => {
+    const user = req.session.user;
+    res.render('login-register', { user , error: 'null'});
 });
 
 app.post('/login', async (req, res) => {
@@ -156,8 +159,8 @@ app.get('/dashboard', (req, res) => {
                     }
                     
                     const stajBitis = date.format(new Date(stajData[0].staj_bitis), 'YYYY/MM/DD');
-                    const now = date.format(new Date(), 'YYYY/MM/DD');
-                    const diffTime = Math.abs(new Date(now) - new Date(stajBitis));
+                    const nowDate = date.format(new Date(), 'YYYY/MM/DD');
+                    const diffTime = Math.abs(new Date(nowDate) - new Date(stajBitis));
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     const progress =  Math.round((100 - (diffDays * 100) / 180));
  
@@ -167,9 +170,8 @@ app.get('/dashboard', (req, res) => {
                             console.error('MySQL sorgu hatası   ', err);
                             return;
                         }
-                        const now = date.format(new Date(), 'YYYY/MM/DD');
                         const projeBitis = date.format(new Date(projeData[0].project_end_date), 'YYYY/MM/DD'); // Hata var çözülecek
-                        const pdiffTime = Math.abs(new Date(now) - new Date(projeBitis));
+                        const pdiffTime = Math.abs(new Date(nowDate) - new Date(projeBitis));
                         const pdiffDays = Math.ceil(pdiffTime / (1000 * 60 * 60 * 24));
                         const projeProgress  =  Math.round((100 - (pdiffDays * 100) / 180));
 
@@ -184,17 +186,17 @@ app.get('/dashboard', (req, res) => {
                             progress,
                             projeProgress
                         };
-
                         res.render('dashboard', dashboardData);
                     });
                 });
             });
+        } else if (user.role === 'admin') {
+            //res.render('dashboard');
         } else {
-            res.render('dashboard', { user, projeListesi: []  });
-        }
+            res.send('Aradığınız sayfa bulunamadı.....');
+    }
     }
 });
-
 
 app.get('/proje-ekle', (req, res) => {
     const today = new Date();
@@ -355,6 +357,60 @@ app.get('/iletisim/', (req, res) => {
     }
 });
 
+
+app.get('/admin/iletisim', (req, res) => {
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const iletisimQuery = `SELECT * FROM iletisim`;
+
+        connection.query(iletisimQuery, (err, result) => {
+            if(err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            const iletisim = result;
+            res.render('admin-iletisim', { user, iletisim });
+        });
+    }
+});
+
+app.get('/admin/iletisim/:id', (req, res) => {
+    const user = req.session.user;
+    if (user.role !== 'Stajyer') {
+        res.redirect('/dashboard');
+    } else {
+        const id = req.params.id;
+        const iletisimQuery = `SELECT * FROM iletisim WHERE id = '${id}'`;
+        connection.query(iletisimQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            const iletisim = result[0];
+            res.render('admin-iletisim-detay', { user, iletisim });
+        });
+    }
+});
+
+app.get('/admin/iletisim/delete/:id', (req, res) => {
+    const user = req.session.user;
+    if (user.role !== 'Stajyer') {
+        res.redirect('/dashboard'); 
+    } else {
+        const id = req.params.id;
+        const deleteQuery = `DELETE FROM iletisim WHERE id = '${id}'`;
+        connection.query(deleteQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                console.log(result.affectedRows + " kayıt güncellendi");
+                return;
+            }
+            res.redirect('/admin/iletisim');
+        });
+    }
+});
 
 
 app.listen(3000, () => {
