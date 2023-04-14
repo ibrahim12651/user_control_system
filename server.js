@@ -8,8 +8,6 @@ const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
 
-const CLIENT_ID = "3a4fd049caab9bebc5a8";
-
 const connection = mysql.createConnection({
     host     : 'localhost',
     user     : 'root',
@@ -43,14 +41,13 @@ app.use(session({
 
 app.get('/', (req, res) => {
     const user = req.session.user;
-
     let error = req?.query?.error;
     if (error === 'login') {
-        res.render('index', { user, error: 'login' })
+        res.render('login-register', { user, error: 'login' })
     } else if (error === 'password') {
-        res.render('index', { user, error: 'password' })
+        res.render('login-register', { user, error: 'password' })
     } else if (error === 'username') {
-        res.render('index', { user, error: 'username' })
+        res.render('login-register', { user, error: 'username' })
     } else {
         res.render('index', { user, error: 'null' });
     }
@@ -274,28 +271,91 @@ app.post('/dosya-yukle', (req, res) => {
     if (!user) {
         res.redirect('/');
     } else {
-            
         if (!req.files || !req.files.dosya) {
-        res.send('Dosya seçilmedi!');
-        return;
+            res.send('Dosya seçilmedi!');
+            return;
         }
         
         const userFolder = __dirname + '/public/uploads/' + user.username;
         if (!fs.existsSync(userFolder)) {
             fs.mkdirSync(userFolder);
         }
-        const dosyaYolu = `${userFolder}/${req.files.dosya.name}`;
+        
         const dosya = req.files.dosya;
-        dosya.mv(dosyaYolu, (err) => {
-        if (err) {
-            console.error(err);
-            res.status(500).send(err);
+        const dosyaYolu = `${userFolder}/${dosya.name}`;
+        const dosyaUzantisi = dosya.name.split('.').pop().toLowerCase();
+
+        if (dosyaUzantisi === 'exe' || dosyaUzantisi === "rar" || dosyaUzantisi === "xml" || dosyaUzantisi === "mp4" || dosyaUzantisi === "mp3" || dosyaUzantisi === "wav" || dosyaUzantisi === "zip" || dosyaUzantisi === 'msi' || dosyaUzantisi === 'xls' || dosyaUzantisi === 'xlsx') {
+            res.send('Bu tür dosyalar yüklenemez!');
             return;
         }
-        res.redirect('/project/' + projeAdi);
+
+        dosya.mv(dosyaYolu, (err) => {
+            if (err) {
+                console.error(err);
+                res.status(500).send(err);
+                return;
+            }
+            res.redirect('/project/' + projeAdi);
+            console.log('/project/'+projeAdi);
         });
     }
 });
+
+app.get('/file/dosya/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const user = req.session.user;
+    const path = require('path');
+  
+    if (!user) {
+      res.redirect('/');
+    } else {
+      const userFolder = path.join(__dirname, 'public', 'uploads', user.username);
+      const dosyaYolu = path.join(userFolder, dosyaAdi);
+      const ext = path.extname(dosyaAdi).toLowerCase();
+  
+      switch (ext) {
+        case '.pdf':
+          res.contentType('application/pdf');
+          break;
+        case '.jpg':
+          res.contentType('image/jpg');
+          break;
+        case '.png':
+          res.contentType('image/png');
+          break;
+        case '.jpeg':
+          res.contentType('image/jpeg');
+          break;
+        case '.gif':
+          res.contentType('image/gif');
+          break;
+        case '.jfif':
+            res.contentType('image/jfif');
+          break;
+        default:
+          fs.readFile(dosyaYolu, 'utf-8', (err, data) => {
+            if (err) {
+              console.error(err);
+              return;
+            }
+            res.render('dosya', { user, dosyaAdi, dosyaIcerigi: data , path});
+          });
+          return;
+      }
+  
+      fs.readFile(dosyaYolu, (err, data) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        res.send(data);
+      });
+    }
+  });
+  
+  
+
 
 app.get('/file/:dosyaAdi', (req, res) => {
     const dosyaAdi = req.params.dosyaAdi;
@@ -322,14 +382,21 @@ app.get('/file/delete/:dosyaAdi', (req, res) => {
                 console.error('Dosya silme hatası', err);
                 return;
             }
-            res.redirect('/dashboard');
+            res.redirect('/project/' + dosyaAdi);
         });
     }
 });
 
+function removechar(str) {
+    var str = str.replace(/['"]/g, "");
+    return str;
+  }
+  
+
 app.post('/iletisim', (req, res) => {
     const { adSoyad, email, konu, mesaj } = req.body;
-    const insertQuery = `INSERT INTO iletisim (adSoyad, email, konu, mesaj) VALUES ('${adSoyad}', '${email}', '${konu}', '${mesaj}')`;
+    const clearchar = removechar(mesaj);
+    const insertQuery = `INSERT INTO iletisim (adSoyad, email, konu, mesaj) VALUES ('${adSoyad}', '${email}', '${konu}', '${clearchar}')`;
     connection.query(insertQuery, (err, result) => {
         if (err) {
             console.error('MySQL sorgu hatası', err);
