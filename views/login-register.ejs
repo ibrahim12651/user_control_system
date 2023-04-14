@@ -13,27 +13,32 @@
 <body>
     <div class="container">
         <div class="row">
-            <div class="col-md-6">
+            <div class="col-md-6">                
+                <div class="card card-body mt-3">
                 <h1 style="text-align: center;">Giriş Yap</h1>
-                <form action="/login" method="post">
-                    <div class="input-group mb-3">
-                        <label for="username" class="form-label">Kullanıcı Adı:</label><br>
+                    <form action="/login" method="post">
                         <div class="input-group mb-3">
-                          <span class="input-group-text">@</span>
-                          <input type="text" class="form-control" placeholder="Kullanıcı Adı" name="username" required>
-                        </div>  
-                        <label for="password" class="form-label">Şifre:</label><br>
-                        <div class="input-group mb-1">
-                            <input type="password" class="form-control" placeholder="Şifre" aria-label="Şifre" name="password" required>
-                        </div>  
-                        <div class="input-group  my-3">
-                            <button type="submit" class="btn btn-primary">Giriş Yap</button>
-                        </div>
-                </form>
+                            <label for="username" class="form-label">Kullanıcı Adı:</label><br>
+                            <div class="input-group mb-3">
+                            <span class="input-group-text">@</span>
+                            <input type="text" class="form-control" placeholder="Kullanıcı Adı" name="username" required>
+                            </div>  
+                            <label for="password" class="form-label">Şifre:</label><br>
+                            <div class="input-group mb-1">
+                                <input type="password" class="form-control" placeholder="Şifre" aria-label="Şifre" name="password" required>
+                            </div>  
+                            <div class="input-group  my-3">
+                                <button type="submit" class="btn btn-primary">Giriş Yap</button>
+                            </div>
+                    </form>
+                </div>
             </div>
         </div>
-            <div class="col-md-6">
+            <div class="col-md-6">                
+                <div class="card card-body mt-4">
                 <h1 style="text-align: center;">Kayıt Ol</h1>
+
+
                 <form action="/register" method="post">
                     <div class="input-group mb-3">
                         <label for="username" class="form-label">Kullanıcı Adı:</label><br>
@@ -65,6 +70,7 @@
                             <button type="submit" class="btn btn-primary">Kayıt Ol</button>
                         </div>
                 </form>
+                </div>
             </div>
         </div>
     </div>
