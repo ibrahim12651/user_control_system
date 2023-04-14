@@ -48,7 +48,7 @@
         <ul class="list-group">
           <% files.forEach(file => { %>
             <li class="list-group-item">
-              <a href="/file/<%= file %>"><%= file %></a> <a href="/file/delete/<%= file %>" class="btn btn-danger btn-sm float-end">Sil</a>
+            <a href="/file/dosya/<%= file %>"><%= file %></a> <a href="/file/delete/<%= file %>" class="btn btn-danger btn-sm float-end">Sil</a><a href="/file/<%= file %>" class="btn btn-success btn-sm float-end">İndir</a>
             </li>
           <% }); %>
         </ul>
