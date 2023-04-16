@@ -48,6 +48,8 @@ app.get('/', (req, res) => {
         res.render('login-register', { user, error: 'password' })
     } else if (error === 'username') {
         res.render('login-register', { user, error: 'username' })
+    } else if (error === 'project-name-error') {
+        res.render('create-project', { user, error: 'project-name-error' })
     } else {
         res.render('index', { user, error: 'null' });
     }
@@ -115,11 +117,6 @@ app.post('/register', (req, res) => {
                         password,
                         role
                     };
-                    const userFolder = __dirname + '/public/uploads/' + username;
-                    if (!fs.existsSync(userFolder)) {
-                        fs.mkdirSync(userFolder);
-                    }
-                    
                     req.session.user = user;
                     res.redirect('/proje-ekle');
                 });
@@ -141,59 +138,51 @@ app.get('/dashboard', (req, res) => {
         const projeListQuery = `SELECT * FROM stajer_project WHERE username = '${user.username}'`;
         const stajBitisQuery = `SELECT staj_baslangic, staj_bitis FROM stajer_user WHERE username = '${user.username}'`;
         const projeBitisQuery = `SELECT project_start_date,project_end_date FROM stajer_project WHERE username = '${user.username}'`;
-
-        if (user.role === 'Stajyer') {
-            connection.query(projeListQuery, (err, result) => {
+        connection.query(projeListQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            
+            connection.query(stajBitisQuery, (err, stajData) => {
                 if (err) {
-                    console.error('MySQL sorgu hatası', err);
+                    console.error('MySQL sorgu hatası   ', err);
                     return;
                 }
                 
-                connection.query(stajBitisQuery, (err, stajData) => {
+                const stajBitis = date.format(new Date(stajData[0].staj_bitis), 'YYYY/MM/DD');
+                const nowDate = date.format(new Date(), 'YYYY/MM/DD');
+                const diffTime = Math.abs(new Date(nowDate) - new Date(stajBitis));
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const progress =  Math.round((100 - (diffDays * 100) / 180));
+
+                connection.query(projeBitisQuery, (err, projeData) => {
                     if (err) {
                         console.error('MySQL sorgu hatası   ', err);
                         return;
                     }
-                    
-                    const stajBitis = date.format(new Date(stajData[0].staj_bitis), 'YYYY/MM/DD');
-                    const nowDate = date.format(new Date(), 'YYYY/MM/DD');
-                    const diffTime = Math.abs(new Date(nowDate) - new Date(stajBitis));
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    const progress =  Math.round((100 - (diffDays * 100) / 180));
- 
-
-                    connection.query(projeBitisQuery, (err, projeData) => {
-                        if (err) {
-                            console.error('MySQL sorgu hatası   ', err);
-                            return;
-                        }
-                        const projeBitis = date.format(new Date(projeData[0].project_end_date), 'YYYY/MM/DD'); // Hata var çözülecek
-                        const pdiffTime = Math.abs(new Date(nowDate) - new Date(projeBitis));
-                        const pdiffDays = Math.ceil(pdiffTime / (1000 * 60 * 60 * 24));
-                        const projeProgress  =  Math.round((100 - (pdiffDays * 100) / 180));
-
-                        const dashboardData = {
-                            user,
-                            stajBitis,
-                            projeBitis,
-                            projeListesi: result,
-                            diffDays,
-                            pdiffDays,
-                            pdiffTime,
-                            progress,
-                            projeProgress
-                        };
-                        res.render('dashboard', dashboardData);
-                    });
+                    const projeBitis = date.format(new Date(projeData[0].project_end_date), 'YYYY/MM/DD'); // Hata var çözülecek
+                    const pdiffTime = Math.abs(new Date(nowDate) - new Date(projeBitis));
+                    const pdiffDays = Math.ceil(pdiffTime / (1000 * 60 * 60 * 24));
+                    const projeProgress  =  Math.round((100 - (pdiffDays * 100) / 180));
+                    const dashboardData = {
+                        user,
+                        stajBitis,
+                        projeBitis,
+                        projeListesi: result,
+                        diffDays,
+                        pdiffDays,
+                        pdiffTime,
+                        progress,
+                        projeProgress
+                    };
+                    res.render('dashboard', dashboardData);
                 });
             });
-        } else if (user.role === 'admin') {
-            //res.render('dashboard');
-        } else {
-            res.send('Aradığınız sayfa bulunamadı.....');
+        });
     }
     }
-});
+);
 
 app.get('/proje-ekle', (req, res) => {
     const today = new Date();
@@ -205,9 +194,10 @@ app.get('/proje-ekle', (req, res) => {
     if (!user) {
         res.redirect('/');
     } else {
-        res.render('create-project', { user , baslangicTarihi, bitisTarihi});
+        res.render('create-project', { user , baslangicTarihi, bitisTarihi , error: 'null'});
     }
 });
+
 
 app.post('/projects', (req, res) => {
     const user = req.session.user;
@@ -216,16 +206,37 @@ app.post('/projects', (req, res) => {
     } else {
         const baslangicTarihi = date.format(new Date(), 'YYYY/MM/DD');
         const { projeAdi, projeAciklama , githubLink, bitisTarihi } = req.body;
-        const insertQuery = `INSERT INTO stajer_project (username, project_name,project_about, project_link	, project_start_date, project_end_date) VALUES ('${user.username}', '${projeAdi}', '${projeAciklama}', '${githubLink}', '${baslangicTarihi}', '${bitisTarihi}')`;
-        connection.query(insertQuery, (err, result) => {
+        const proje_ismi_query = `SELECT * FROM stajer_project WHERE project_name = '${projeAdi}'`;
+        connection.query(proje_ismi_query, (err, result) => {
             if (err) {
                 console.error('MySQL sorgu hatası', err);
                 return;
             }
-            res.redirect('/dashboard');
+            if( result.length > 0){
+                res.render('create-project', { error: 'project-name-error', baslangicTarihi: baslangicTarihi , bitisTarihi: bitisTarihi });
+            }else{
+                const insertQuery = `INSERT INTO stajer_project (username, project_name, project_about, project_start_date, project_end_date, project_link) VALUES ('${user.username}', '${projeAdi}', '${projeAciklama}', '${baslangicTarihi}', '${bitisTarihi}', '${githubLink}')`;
+                connection.query(insertQuery, (err, result) => {
+                    if (err) {
+                        console.error('MySQL sorgu hatası', err);
+                        return;
+                    }
+                    const userFolder = __dirname + '/public/uploads/' + projeAdi;
+                    fs.mkdir(userFolder, { recursive: true }, (err) => {
+                        if (err) {
+                            console.error('Klasör oluşturma hatası', err);
+                            return;
+                        }
+                    });
+                    res.redirect('dashboard');
+                });
+
+            }
         });
     }
 });
+
+
 
 app.get('/project/:projeAdi', (req, res) => {
     const user = req.session.user;
@@ -239,13 +250,6 @@ app.get('/project/:projeAdi', (req, res) => {
                 console.error('MySQL sorgu hatası', err);
                 return;
             }
-            const userFolder = __dirname + '/public/uploads/' + user.username;
-            fs.mkdir(userFolder, { recursive: true }, (err) => {
-                if (err) {
-                    console.error('Klasör oluşturma hatası', err);
-                    return;
-                }
-            });
             const proje = result[0];
             if (!proje) {
                 res.redirect('/dashboard');
@@ -264,7 +268,6 @@ app.get('/project/:projeAdi', (req, res) => {
         });
     }
 });
-
 app.post('/dosya-yukle', (req, res) => {
     const projeAdi = req.body.projectName;
     const user = req.session.user;
@@ -276,7 +279,7 @@ app.post('/dosya-yukle', (req, res) => {
             return;
         }
         
-        const userFolder = __dirname + '/public/uploads/' + user.username;
+        const userFolder = __dirname + '/public/uploads/' + projeAdi;
         if (!fs.existsSync(userFolder)) {
             fs.mkdirSync(userFolder);
         }
@@ -285,7 +288,7 @@ app.post('/dosya-yukle', (req, res) => {
         const dosyaYolu = `${userFolder}/${dosya.name}`;
         const dosyaUzantisi = dosya.name.split('.').pop().toLowerCase();
 
-        if (dosyaUzantisi === 'exe' || dosyaUzantisi === "rar" || dosyaUzantisi === "xml" || dosyaUzantisi === "mp4" || dosyaUzantisi === "mp3" || dosyaUzantisi === "wav" || dosyaUzantisi === "zip" || dosyaUzantisi === 'msi' || dosyaUzantisi === 'xls' || dosyaUzantisi === 'xlsx') {
+        if (dosyaUzantisi === 'exe' || dosyaUzantisi === "key" || dosyaUzantisi === "mov" ||dosyaUzantisi==="docx" ||dosyaUzantisi === "rar" || dosyaUzantisi === "xml" || dosyaUzantisi === "mp4" || dosyaUzantisi === "mp3" || dosyaUzantisi === "wav" || dosyaUzantisi === "zip" || dosyaUzantisi === 'msi' || dosyaUzantisi === 'xls' || dosyaUzantisi === 'xlsx') {
             res.send('Bu tür dosyalar yüklenemez!');
             return;
         }
@@ -297,20 +300,19 @@ app.post('/dosya-yukle', (req, res) => {
                 return;
             }
             res.redirect('/project/' + projeAdi);
-            console.log('/project/'+projeAdi);
         });
     }
 });
-
-app.get('/file/dosya/:dosyaAdi', (req, res) => {
+app.get('/file/dosya/:project_name/:dosyaAdi', (req, res) => {
     const dosyaAdi = req.params.dosyaAdi;
+    const proje_name = req.params.project_name;
     const user = req.session.user;
     const path = require('path');
   
     if (!user) {
       res.redirect('/');
     } else {
-      const userFolder = path.join(__dirname, 'public', 'uploads', user.username);
+      const userFolder = path.join(__dirname, 'public', 'uploads', proje_name);
       const dosyaYolu = path.join(userFolder, dosyaAdi);
       const ext = path.extname(dosyaAdi).toLowerCase();
   
@@ -353,36 +355,35 @@ app.get('/file/dosya/:dosyaAdi', (req, res) => {
       });
     }
   });
-  
-  
 
-
-app.get('/file/:dosyaAdi', (req, res) => {
+app.get('/file/download/:project_name/:dosyaAdi', (req, res) => {
     const dosyaAdi = req.params.dosyaAdi;
+    const proje_name = req.params.project_name;
     const user = req.session.user;
     if (!user) {
         res.redirect('/');
     } else {
-        const userFolder = __dirname + '/public/uploads/' + user.username;
+        const userFolder = __dirname + '/public/uploads/' + proje_name;
         const dosyaYolu = `${userFolder}/${dosyaAdi}`;
         res.download(dosyaYolu);
     }
 });
 
-app.get('/file/delete/:dosyaAdi', (req, res) => {
-    const dosyaAdi = req.params.dosyaAdi;
+app.get('/file/delete/:project_name/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi; 
+    const proje_name = req.params.project_name;
     const user = req.session.user;
     if (!user) {
         res.redirect('/');
     } else {
-        const userFolder = __dirname + '/public/uploads/' + user.username;
+        const userFolder = __dirname + '/public/uploads/' + proje_name;
         const dosyaYolu = `${userFolder}/${dosyaAdi}`;
         fs.unlink(dosyaYolu, (err) => {
             if (err) {
                 console.error('Dosya silme hatası', err);
                 return;
             }
-            res.redirect('/project/' + dosyaAdi);
+            res.redirect('/project/' + proje_name);
         });
     }
 });
@@ -402,7 +403,7 @@ app.post('/iletisim', (req, res) => {
             console.error('MySQL sorgu hatası', err);
             return;
         }
-        res.redirect('/');
+        res.redirect('/dashboard');
     });
 });
 
@@ -445,7 +446,7 @@ app.get('/admin/iletisim', (req, res) => {
 
 app.get('/admin/iletisim/:id', (req, res) => {
     const user = req.session.user;
-    if (user.role !== 'Stajyer') {
+    if (user.role !== 'Admin') {
         res.redirect('/dashboard');
     } else {
         const id = req.params.id;
@@ -463,19 +464,210 @@ app.get('/admin/iletisim/:id', (req, res) => {
 
 app.get('/admin/iletisim/delete/:id', (req, res) => {
     const user = req.session.user;
-    if (user.role !== 'Stajyer') {
-        res.redirect('/dashboard'); 
+    if (!user) {
+        res.redirect('/dashboard');
+    } else{
+
+        if (user.role !== 'Admin') {
+            res.redirect('/dashboard'); 
+        } else {
+            const id = req.params.id;
+            const deleteQuery = `DELETE FROM iletisim WHERE id = '${id}'`;
+            connection.query(deleteQuery, (err, result) => {
+                if (err) {
+                    console.error('MySQL sorgu hatası', err);
+                    console.log(result.affectedRows + " kayıt güncellendi");
+                    return;
+                }
+                res.redirect('/admin/iletisim');
+            });
+        }
+    }
+});
+
+
+app.get('/admin', (req, res) => {
+    const user = req.session.user;
+    if (!user) {
+        res.redirect('/');
     } else {
-        const id = req.params.id;
-        const deleteQuery = `DELETE FROM iletisim WHERE id = '${id}'`;
-        connection.query(deleteQuery, (err, result) => {
+        const userQuery = `SELECT * FROM stajer_user`;
+        const projeQuery = `SELECT * FROM stajer_project`;
+        const iletisimQuery = `SELECT * FROM iletisim`;
+        connection.query(userQuery, (err, result) => {
             if (err) {
                 console.error('MySQL sorgu hatası', err);
-                console.log(result.affectedRows + " kayıt güncellendi");
                 return;
             }
-            res.redirect('/admin/iletisim');
+            const users = result;
+            connection.query(projeQuery, (err, result) => {
+                if (err) {
+                    console.error('MySQL sorgu hatası', err);
+                    return;
+                }
+                const projeler = result;
+                connection.query(iletisimQuery, (err, result) => {
+                    if (err) {
+                        console.error('MySQL sorgu hatası', err);
+                        return;
+                    }
+                    const iletisim = result;
+
+                    res.render('admin', { user, users, projeler, iletisim });
+                });
+            });
         });
+    }
+});
+
+app.get('/admin/user/:username', (req, res) => {
+    const user = req.session.user;
+    if (user.role !== 'Admin') {
+        res.redirect('/dashboard');
+    } else {
+        const username = req.params.username;
+        const userQuery = `SELECT * FROM stajer_user WHERE username = '${username}'`;
+        const projeQuery = `SELECT * FROM stajer_project WHERE username = '${username}'`;
+        const iletisimQuery = `SELECT * FROM iletisim WHERE adSoyad = '${username}'`;
+
+        connection.query(userQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            const users = result;
+            connection.query(projeQuery, (err, result) => {
+                if (err) {
+                    console.error('MySQL sorgu hatası', err);
+                    return;
+                }
+                const projeler = result;
+                connection.query(iletisimQuery, (err, result) => {
+                    if (err) {
+                        console.error('MySQL sorgu hatası', err);
+                        return;
+                    }
+                    const iletisim = result;
+                    res.render('admin-user', { user, users, projeler, iletisim });
+                });
+            });
+        });
+    }
+});
+
+app.get('/admin/user/project/:project_name', (req, res) => {
+    const user = req.session.user;
+    if (user.role !== 'Admin') {
+        res.redirect('/dashboard');
+    } else {
+        const project_name = req.params.project_name;
+        const projeQuery = `SELECT * FROM stajer_project WHERE project_name = '${project_name}'`;
+        
+        connection.query(projeQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+            const projeler = result;
+            fs.readdir(`./public/uploads/${project_name}/`, (err, files) => {
+                if (err) {
+                    console.error('Dosya okuma hatası', err);
+                    return;
+                }
+                res.render('admin-project', { user, projeler, files: files });
+            });
+        });
+    }
+});
+
+
+app.get('/admin/dosya/:project_name/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const proje_name = req.params.project_name;
+    const user = req.session.user;
+    const path = require('path');
+    
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const userFolder = path.join(__dirname, 'public', 'uploads', proje_name);
+        const dosyaYolu = path.join(userFolder, dosyaAdi);
+        const ext = path.extname(dosyaAdi).toLowerCase();
+
+        switch (ext) {
+            case '.pdf':
+                res.contentType('application/pdf');
+                break;
+              case '.jpg':
+                res.contentType('image/jpg');
+                break;
+              case '.png':
+                res.contentType('image/png');
+                break;
+              case '.jpeg':
+                res.contentType('image/jpeg');
+                break;
+              case '.gif':
+                res.contentType('image/gif');
+                break;
+              case '.jfif':
+                  res.contentType('image/jfif');
+                break;
+            default:
+                fs.readFile(dosyaYolu, 'utf-8', (err, data) => {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    res.render('dosya', { user, dosyaAdi, dosyaIcerigi: data , path});
+                });
+                return;
+        }
+
+        fs.readFile(dosyaYolu, (err, data) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            res.send(data);
+        });
+    }
+});
+
+app.get('/admin/dosya/delete/:project_name/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const proje_name = req.params.project_name;
+    const user = req.session.user;
+    const path = require('path');
+    
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const userFolder = path.join(__dirname, 'public', 'uploads', proje_name);
+        const dosyaYolu = path.join(userFolder, dosyaAdi);
+        fs.unlink(dosyaYolu, (err) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+
+            res.redirect(`/admin/user/project/${proje_name}`);
+        });
+    }
+});
+
+app.get('/admin/dosya/download/:project_name/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const proje_name = req.params.project_name;
+    const user = req.session.user;
+    const path = require('path');
+
+    if (!user) {
+        res.redirect('/');
+    } else {
+        const userFolder = path.join(__dirname, 'public', 'uploads', proje_name);
+        const dosyaYolu = path.join(userFolder, dosyaAdi);
+        res.download(dosyaYolu);
     }
 });
 
