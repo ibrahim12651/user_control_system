@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Profil</title><meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="#">Stajyer</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mobileactive" aria-controls="mobileactive" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="mobileactive">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+              <li class="nav-item">
+                <a class="nav-link active" aria-current="page" href="/">Anasayfa</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">Projeler(Github)</a>
+              </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/iletisim">İletişim</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">Çıkış Yap</a>
+                </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+  
+
+    <div class="container my-5">
+        <div class="row">
+          <div class="col-md-6 offset-md-3">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Profil Bilgileri</h5>
+                <hr>
+                  <% users.forEach(function(user) { %>
+                    <p class="card-text"> <strong> Kullanıcı Adı: </strong> <%= user.username %></p>
+                    
+                    <p class="card-text"><strong> E-Posta: </strong> <%= user.email %></p>
+                
+                    <p class="card-text"><strong> Yetkisi: </strong> <%= user.role %></p>
+
+                <% }) %>
+              </div>
+            </div>
+            <h3 class="mt-5">Proje(leri)</h3>
+            <ul class="list-group mt-3">
+            <% if (projeler.length === 0) { %>
+                <li class="list-group-item">Henüz bir projesi yok 😦 </li>
+              <% } else { %>
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Proje İsim(leri)</th>
+                      <th>Hakkında</th>
+                      <th>İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tbody>
+                                    <% projeler.forEach(function(proje) { %>
+                                        <tr>
+                                            <td><%= proje.project_name %></td>
+                                            <% if (proje.project_about.length > 50) { %>
+                                                <td><%= proje.project_about.substring(0, 20) %>...</td>
+                                            <% } else { %>
+                                                <td><%= proje.project_about %></td>
+                                            <% } %>
+
+                                            <td>
+                                                <a href="/admin/user/project/<%= proje.project_name %>" class="btn btn-primary">Görüntüle</a>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </tbody>
+                        </table>
+              <% } %>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+
+	<!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+
+    
+
+</body>
+</html>
