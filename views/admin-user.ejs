@@ -47,7 +47,13 @@
                     <p class="card-text"><strong> E-Posta: </strong> <%= user.email %></p>
                 
                     <p class="card-text"><strong> Yetkisi: </strong> <%= user.role %></p>
+                    
+                    <p class="card-text"><strong> Staj Başlangıç Tarihi: </strong> <%= user.staj_baslangic %></p>
 
+                    <p class="card-text"><strong> Staj Bitiş Tarihi: </strong> <%= user.staj_bitis %></p>
+                    <% projeler.forEach(function(proje) { %>
+                    <p class="card-text"><strong> Proje Bitiş Tarihi: </strong> <%= proje.project_end_date %></p>
+                    <% }) %>
                 <% }) %>
               </div>
             </div>
