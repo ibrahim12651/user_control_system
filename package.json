@@ -19,6 +19,8 @@
     "fs": "^0.0.1-security",
     "mysql": "^2.18.1",
     "passport": "^0.6.0",
-    "passport-github2": "^0.1.12"
+    "passport-github2": "^0.1.12",
+    "pdfkit": "^0.13.0",
+    "uuid": "^9.0.0"
   }
 }
