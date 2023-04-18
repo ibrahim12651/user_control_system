@@ -7,6 +7,9 @@ const date = require('date-and-time');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
+const uuid = require('uuid');
+const PDFDocument = require('pdfkit');
+
 
 const connection = mysql.createConnection({
     host     : 'localhost',
@@ -91,7 +94,6 @@ app.post('/register', (req, res) => {
     }else{
         const role = 'Stajyer';
         const selectQuery = `SELECT * FROM stajer_user WHERE username = '${username}'`;
-        console.log(selectQuery);
         connection.query(selectQuery, async (err, result) => {
             if (err) {
                 console.error('MySQL sorgu hatası', err);
@@ -102,7 +104,7 @@ app.post('/register', (req, res) => {
             }else{
                 console.log('Bu kullanıcı adı daha önce alınmamış');
                 const hashedPassword = await bcrypt.hash(password, 10);
-                const insertQuery = `INSERT INTO stajer_user (username, email, telefon, role, password, staj_baslangic,staj_bitis) VALUES ('${username}', '${email}', '${telefon}', '${role}', '${hashedPassword}', '${registerdate}','${staj_Bitis}')`;
+                const insertQuery = `INSERT INTO stajer_user (username, email, telefon, role, password, staj_baslangic,staj_bitis,staj_durumu) VALUES ('${username}', '${email}', '${telefon}', '${role}', '${hashedPassword}', '${registerdate}','${staj_Bitis}','Devam Ediyor')`;
                 console.log(insertQuery);
                 connection.query(insertQuery, (err, result) => {
                     if (err) {
@@ -149,7 +151,8 @@ app.get('/dashboard', (req, res) => {
                     console.error('MySQL sorgu hatası   ', err);
                     return;
                 }
-                
+                let stajfinal;
+                let stajdurum = "Bitti";
                 const stajBitis = date.format(new Date(stajData[0].staj_bitis), 'YYYY/MM/DD');
                 const nowDate = date.format(new Date(), 'YYYY/MM/DD');
                 const diffTime = Math.abs(new Date(nowDate) - new Date(stajBitis));
@@ -161,7 +164,7 @@ app.get('/dashboard', (req, res) => {
                         console.error('MySQL sorgu hatası   ', err);
                         return;
                     }
-                    const projeBitis = date.format(new Date(projeData[0].project_end_date), 'YYYY/MM/DD'); // Hata var çözülecek
+                    const projeBitis = date.format(new Date(projeData[0].project_end_date), 'YYYY/MM/DD'); 
                     const pdiffTime = Math.abs(new Date(nowDate) - new Date(projeBitis));
                     const pdiffDays = Math.ceil(pdiffTime / (1000 * 60 * 60 * 24));
                     const projeProgress  =  Math.round((100 - (pdiffDays * 100) / 180));
@@ -176,13 +179,56 @@ app.get('/dashboard', (req, res) => {
                         progress,
                         projeProgress
                     };
-                    res.render('dashboard', dashboardData);
+                    if (diffDays == 0) {
+                        stajfinal = `UPDATE stajer_user SET staj_durumu = 'Bitti' WHERE username = '${user.username}'`;
+                        connection.query(stajfinal, (err, result) => {
+                            if (err) {
+                                console.error('MySQL sorgu hatası', err);
+                                return;
+                            }
+                            stajfinal = 'Bitti'; 
+                            res.redirect('/file/stajer/'+user.username+'/'+user.username+'.pdf');
+                        });
+                    } else if (stajdurum === user.staj_durumu) {
+                        const doc = new PDFDocument();
+                        doc.font('font/DejaVuSansCondensed.ttf');
+                        doc.encoding = 'UTF-8';
+                        
+                        const filename = `public/Staj_Finish/${user.username}/${user.username}.pdf`;
+                        doc.pipe(fs.createWriteStream(filename));
+                        
+                        doc.fontSize(20).text(`Staj bilgileri - ABC FİRMA`, { align: 'center' });
+                        doc.moveDown();
+                        
+                        doc.fontSize(14).text(`Stajyerin Bilgileri:`);
+                        doc.moveDown();
+                        doc.fontSize(12).text(`Stajyer Kullanıcı Adı: ${user.username}`);
+                        doc.fontSize(12).text(`Stajyer E-Mail: ${user.email}`);
+                        doc.fontSize(12).text(`Stajyer Telefon: ${user.telefon}`);
+                        doc.fontSize(12).text(`Staj Başlangıç Tarihi: ${stajData[0].staj_baslangic}`);
+                        doc.fontSize(12).text(`Staj Bitiş Tarihi: ${stajData[0].staj_bitis}`);
+                        doc.moveDown();
+                                                
+                        doc.fontSize(14).text('Proje Listesi:');
+                        result.forEach((proje) => {
+                          doc.fontSize(12).text(`Proje Adı: ${proje.project_name}`);
+                          doc.fontSize(12).text(`Proje Başlangıç Tarihi: ${proje.project_start_date}`);
+                          doc.fontSize(12).text(`Proje Bitiş Tarihi: ${proje.project_end_date}`);
+                          doc.fontSize(12).text(`Proje Açıklaması: ${proje.project_about}`);
+                          doc.moveDown();
+                        });
+                        
+                        doc.end();
+                        res.redirect('/file/stajer/'+user.username+'/'+user.username+'.pdf');
+                    } else {
+                        res.render('dashboard', dashboardData);
+                    }
                 });
             });
         });
     }
-    }
-);
+});
+
 
 app.get('/proje-ekle', (req, res) => {
     const today = new Date();
@@ -221,6 +267,7 @@ app.post('/projects', (req, res) => {
                         console.error('MySQL sorgu hatası', err);
                         return;
                     }
+                    const userFinishFolder = __dirname + '/public/Staj_Finish/' + user.username;
                     const userFolder = __dirname + '/public/uploads/' + projeAdi;
                     fs.mkdir(userFolder, { recursive: true }, (err) => {
                         if (err) {
@@ -228,6 +275,13 @@ app.post('/projects', (req, res) => {
                             return;
                         }
                     });
+                    fs.mkdir(userFinishFolder, { recursive: true }, (err) => {
+                        if (err) {
+                            console.error('Klasör oluşturma hatası', err);
+                            return;
+                        }
+                    });
+                    
                     res.redirect('dashboard');
                 });
 
@@ -255,6 +309,7 @@ app.get('/project/:projeAdi', (req, res) => {
                 res.redirect('/dashboard');
                 return;
             }
+                const userFolder = __dirname + '/public/uploads/' + projeAdi;
                 fs.readdir(userFolder, (err, files) => {
                     if (err) {
                         console.error('Dosya okuma hatası', err);
@@ -476,7 +531,6 @@ app.get('/admin/iletisim/delete/:id', (req, res) => {
             connection.query(deleteQuery, (err, result) => {
                 if (err) {
                     console.error('MySQL sorgu hatası', err);
-                    console.log(result.affectedRows + " kayıt güncellendi");
                     return;
                 }
                 res.redirect('/admin/iletisim');
@@ -486,39 +540,55 @@ app.get('/admin/iletisim/delete/:id', (req, res) => {
 });
 
 
-app.get('/admin', (req, res) => {
+app.get('/admin', function(req, res) {
     const user = req.session.user;
-    if (!user) {
+    if(!user) {
         res.redirect('/');
     } else {
+        if (user.role !== 'Admin') {
+            res.redirect('/dashboard');
+        } else {       
+        const randomLink = uuid.v4(); 
+        const pageURL = `/admin/${randomLink}`; 
+        app.get(pageURL, function(req, res) {
         const userQuery = `SELECT * FROM stajer_user`;
         const projeQuery = `SELECT * FROM stajer_project`;
         const iletisimQuery = `SELECT * FROM iletisim`;
         connection.query(userQuery, (err, result) => {
-            if (err) {
-                console.error('MySQL sorgu hatası', err);
-                return;
-            }
-            const users = result;
-            connection.query(projeQuery, (err, result) => {
-                if (err) {
-                    console.error('MySQL sorgu hatası', err);
-                    return;
-                }
-                const projeler = result;
-                connection.query(iletisimQuery, (err, result) => {
-                    if (err) {
-                        console.error('MySQL sorgu hatası', err);
-                        return;
-                    }
-                    const iletisim = result;
-
-                    res.render('admin', { user, users, projeler, iletisim });
-                });
-            });
+        if (err) {
+            console.error('MySQL sorgu hatası', err);
+            return;
+        }
+        const users = result;
+        connection.query(projeQuery, (err, result) => {
+        if (err) {
+            console.error('MySQL sorgu hatası', err);
+            return;
+        }
+        const projeler = result;
+        connection.query(iletisimQuery, (err, result) => {
+        if (err) {
+            console.error('MySQL sorgu hatası', err);
+            return;
+        }
+        const iletisim = result;
+        res.render('admin', { user, users, projeler, iletisim });
         });
+        });
+        });
+        });
+        res.redirect(pageURL);
+        setTimeout(function() {
+            app._router.stack.forEach(function(route, index, routes) {
+            if (route.path === pageURL && route.route.methods.get) {
+                routes.splice(index, 1);
+            }
+            });
+        }, 600000);
+        }
     }
 });
+
 
 app.get('/admin/user/:username', (req, res) => {
     const user = req.session.user;
@@ -552,8 +622,10 @@ app.get('/admin/user/:username', (req, res) => {
                 });
             });
         });
+
     }
 });
+
 
 app.get('/admin/user/project/:project_name', (req, res) => {
     const user = req.session.user;
@@ -671,7 +743,47 @@ app.get('/admin/dosya/download/:project_name/:dosyaAdi', (req, res) => {
     }
 });
 
+app.get('/file/stajer/:username/:dosyaAdi', (req, res) => {
+    const dosyaAdi = req.params.dosyaAdi;
+    const username = req.params.username;
+    const user = req.session.user;
+    const path = require('path');
+    
+    if (!user) {
+        res.redirect('/');
+    } else if (user.username !== username) {
+        res.status(401).send('Proje sahibi değilsiniz');
+        return;
+    } else {
+        const userFolder = path.join(__dirname, 'public', 'Staj_Finish', username);
+            const dosyaYolu = path.join(userFolder, dosyaAdi);
+            const ext = path.extname(dosyaAdi).toLowerCase();
+            
+            switch (ext) {
+                case '.pdf':
+                    res.contentType('application/pdf');
+                    break;
+                default:
+                    fs.readFile(dosyaYolu, 'utf-8', (err, data) => {
+                        if (err) {
+                            console.error(err);
+                            return;
+                        }
+                    res.render('dosya', { user, dosyaAdi, dosyaIcerigi: data , path});
+                    });
+                    return;
+            }
+            fs.readFile(dosyaYolu, (err, data) => {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                res.send(data);
+            });
+        }
+});
 
+    
 app.listen(3000, () => {
     console.log('Server 3000 portunda çalışıyor');
 });
