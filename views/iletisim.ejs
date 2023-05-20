@@ -48,7 +48,7 @@
                 <div class="col-md-12">
                     <h1>İletişim Sayfası</h1>
                     <form action="/iletisim" method="post">
-                        İsim: <input type="text" class="form-control "   value="<%= user.username %>" disabled><br>
+                        İsim: <input type="text" class="form-control "   value="<%= user.adSoyad %> (<%= user.username %>)" disabled><br>
                         <input type="hidden" name="adSoyad" value="<%= user.username %>">
                         E-Posta: <input type="text" class="form-control" name="email" value="<%= user.email %>" disabled><br>
                         <input type="hidden" name="email" value="<%= user.email %>">

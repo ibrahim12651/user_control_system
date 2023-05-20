@@ -42,6 +42,8 @@
                 <h5 class="card-title">Profil Bilgileri</h5>
                 <hr>
                   <% users.forEach(function(user) { %>
+                    <p class="card-text"> <strong> Ad Soyadı: </strong> <%= user.adSoyad %></p>
+
                     <p class="card-text"> <strong> Kullanıcı Adı: </strong> <%= user.username %></p>
                     
                     <p class="card-text"><strong> E-Posta: </strong> <%= user.email %></p>
