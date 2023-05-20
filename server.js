@@ -64,7 +64,7 @@ app.get('/joinorregister', (req, res) => {
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    const query = `SELECT * FROM stajer_user WHERE username = '${username}'`;
+    const query = `SELECT * FROM stajer_users WHERE username = '${username}'`;
     connection.query(query, async (err, result) => {  
         if (err) {
             console.error('MySQL sorgu hatası', err);
@@ -88,12 +88,12 @@ app.post('/login', async (req, res) => {
 
 app.post('/register', (req, res) => {    
     var registerdate = date.format(new Date(), 'YYYY/MM/DD HH:mm:ss');
-    const { username, email,telefon,password,confirmPassword,staj_Bitis } = req.body;
+    const { adSoyad,username, email,telefon,password,confirmPassword,staj_Bitis } = req.body;
     if(password !== confirmPassword){
         res.redirect('/?error=password');
     }else{
         const role = 'Stajyer';
-        const selectQuery = `SELECT * FROM stajer_user WHERE username = '${username}'`;
+        const selectQuery = `SELECT * FROM stajer_users WHERE username = '${username}'`;
         connection.query(selectQuery, async (err, result) => {
             if (err) {
                 console.error('MySQL sorgu hatası', err);
@@ -104,7 +104,7 @@ app.post('/register', (req, res) => {
             }else{
                 console.log('Bu kullanıcı adı daha önce alınmamış');
                 const hashedPassword = await bcrypt.hash(password, 10);
-                const insertQuery = `INSERT INTO stajer_user (username, email, telefon, role, password, staj_baslangic,staj_bitis,staj_durumu) VALUES ('${username}', '${email}', '${telefon}', '${role}', '${hashedPassword}', '${registerdate}','${staj_Bitis}','Devam Ediyor')`;
+                const insertQuery = `INSERT INTO stajer_users (adSoyad,username,email,telefon,password,role,staj_baslangic,staj_bitis,staj_durum) VALUES ('${adSoyad}','${username}','${email}','${telefon}','${hashedPassword}','${role}','${registerdate}','${staj_Bitis}','Devam Ediyor')`;
                 console.log(insertQuery);
                 connection.query(insertQuery, (err, result) => {
                     if (err) {
@@ -113,6 +113,7 @@ app.post('/register', (req, res) => {
                     }
                     console.log('Kullanıcı başarıyla eklendi');
                     const user = {
+                        adSoyad,
                         username,
                         email,
                         telefon,
@@ -138,7 +139,7 @@ app.get('/dashboard', (req, res) => {
         res.redirect('/');
     } else {
         const projeListQuery = `SELECT * FROM stajer_project WHERE username = '${user.username}'`;
-        const stajBitisQuery = `SELECT staj_baslangic, staj_bitis FROM stajer_user WHERE username = '${user.username}'`;
+        const stajBitisQuery = `SELECT staj_baslangic, staj_bitis FROM stajer_users WHERE username = '${user.username}'`;
         const projeBitisQuery = `SELECT project_start_date,project_end_date FROM stajer_project WHERE username = '${user.username}'`;
         connection.query(projeListQuery, (err, result) => {
             if (err) {
@@ -180,14 +181,23 @@ app.get('/dashboard', (req, res) => {
                         projeProgress
                     };
                     if (diffDays == 0) {
-                        stajfinal = `UPDATE stajer_user SET staj_durumu = 'Bitti' WHERE username = '${user.username}'`;
+                        stajfinal = `UPDATE stajer_users SET staj_durumu = 'Bitti' WHERE username = '${user.username}'`;
+                        var stajgun = `UPDATE stajer_users SET staj_bitis = DATE_ADD(staj_bitis, INTERVAL 1 DAY) WHERE username = '${user.username}'`;
+                        connection.query(stajgun, (err, result) => {
+                            if (err) {
+                                console.error('MySQL sorgu hatası', err);
+                                return;
+                            }
+                            console.log('Staj günü eklendi');
+                            console.log(stajgun)
+                        });
                         connection.query(stajfinal, (err, result) => {
                             if (err) {
                                 console.error('MySQL sorgu hatası', err);
                                 return;
                             }
                             stajfinal = 'Bitti'; 
-                            res.redirect('/file/stajer/'+user.username+'/'+user.username+'.pdf');
+                            res.redirect('/');
                         });
                     } else if (stajdurum === user.staj_durumu) {
                         const doc = new PDFDocument();
@@ -261,7 +271,7 @@ app.post('/projects', (req, res) => {
             if( result.length > 0){
                 res.render('create-project', { error: 'project-name-error', baslangicTarihi: baslangicTarihi , bitisTarihi: bitisTarihi });
             }else{
-                const insertQuery = `INSERT INTO stajer_project (username, project_name, project_about, project_start_date, project_end_date, project_link) VALUES ('${user.username}', '${projeAdi}', '${projeAciklama}', '${baslangicTarihi}', '${bitisTarihi}', '${githubLink}')`;
+                const insertQuery = `INSERT INTO stajer_project (username, project_name, project_about, project_start_date, project_end_date, github_link) VALUES ('${user.username}', '${projeAdi}', '${projeAciklama}', '${baslangicTarihi}', '${bitisTarihi}', '${githubLink}')`;
                 connection.query(insertQuery, (err, result) => {
                     if (err) {
                         console.error('MySQL sorgu hatası', err);
@@ -551,7 +561,7 @@ app.get('/admin', function(req, res) {
         const randomLink = uuid.v4(); 
         const pageURL = `/admin/${randomLink}`; 
         app.get(pageURL, function(req, res) {
-        const userQuery = `SELECT * FROM stajer_user`;
+        const userQuery = `SELECT * FROM stajer_users`;
         const projeQuery = `SELECT * FROM stajer_project`;
         const iletisimQuery = `SELECT * FROM iletisim`;
         connection.query(userQuery, (err, result) => {
@@ -596,7 +606,7 @@ app.get('/admin/user/:username', (req, res) => {
         res.redirect('/dashboard');
     } else {
         const username = req.params.username;
-        const userQuery = `SELECT * FROM stajer_user WHERE username = '${username}'`;
+        const userQuery = `SELECT * FROM stajer_users WHERE username = '${username}'`;
         const projeQuery = `SELECT * FROM stajer_project WHERE username = '${username}'`;
         const iletisimQuery = `SELECT * FROM iletisim WHERE adSoyad = '${username}'`;
 
