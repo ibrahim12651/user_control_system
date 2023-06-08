@@ -69,53 +69,9 @@
         </div>
     </div>
     </div>
-    <div class="container my-5">
-      <div class="row">
-        <div class="col-md-4">
-          <div class="card">
-            <img src="https://via.placeholder.com/350x150" class="card-img-top" alt="...">
-            <div class="card-body">
-              <h5 class="card-title">Site'nin Amacı</h5>
-              <p class="card-text">Stajyertr.org, Kendi projelerinizi yönetebileceğiniz, projelerinize katılabilir, projelerinize katılan kişileri yönetebileceğiniz bir platformdur.</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="card">
-            <img src="https://via.placeholder.com/350x150" class="card-img-top" alt="...">
-            <div class="card-body">
-              <h5 class="card-title">Stajyertr.org Ekibi</h5>
-              <p class="card-text">Ekibimizi tanıyın.</p>
-              <a href="#" class="btn btn-primary">Daha fazla bilgi</a>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="card">
-            <img src="https://via.placeholder.com/350x150" class="card-img-top" alt="...">
-            <div class="card-body">
-              <h5 class="card-title">İletişim</h5>
-              <% if (user == null) { %>
-                <p class="card-text">Sisteme kayıt olup bizimle iletişime geçebilirsiniz.</p>
-                <a  class="btn btn-primary" id="iletisim">Daha fazla bilgi</a>
-                <script>
-                  const iletisim = document.getElementById("iletisim");
-                  iletisim.addEventListener("click", function() {
-                    window.location.href = "/joinorregister";
-                  });
-                </script> 
-              <% } else { %>
-                <p class="card-text">Bizimle iletişime geçebilirsiniz.</p>
-                <a href="/iletisim" class="btn btn-primary">Daha fazla bilgi</a>
-              <% } %>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
 
-    <footer class="bg-dark text-white py-5 mt-3">
+    <footer class="bg-dark text-white py-5 mt-5 " style="top: 141px; position: relative;">
         <div class="container">
           <div class="row">
             <div class="col-lg-4 mb-4 mb-lg-0">
