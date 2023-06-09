@@ -27,7 +27,8 @@ connection.connect((err) => {
 });
 
 const app = express();
-
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
 
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -64,7 +65,7 @@ app.get('/joinorregister', (req, res) => {
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    const query = `SELECT * FROM stajer_users WHERE username = '${username}'`;
+    const query = `SELECT * FROM stajer_user WHERE username = '${username}'`;
     connection.query(query, async (err, result) => {  
         if (err) {
             console.error('MySQL sorgu hatası', err);
@@ -88,12 +89,12 @@ app.post('/login', async (req, res) => {
 
 app.post('/register', (req, res) => {    
     var registerdate = date.format(new Date(), 'YYYY/MM/DD HH:mm:ss');
-    const { adSoyad,username, email,telefon,password,confirmPassword,staj_Bitis } = req.body;
+    const { username, email,telefon,password,confirmPassword,staj_Bitis } = req.body;
     if(password !== confirmPassword){
         res.redirect('/?error=password');
     }else{
         const role = 'Stajyer';
-        const selectQuery = `SELECT * FROM stajer_users WHERE username = '${username}'`;
+        const selectQuery = `SELECT * FROM stajer_user WHERE username = '${username}'`;
         connection.query(selectQuery, async (err, result) => {
             if (err) {
                 console.error('MySQL sorgu hatası', err);
@@ -104,7 +105,7 @@ app.post('/register', (req, res) => {
             }else{
                 console.log('Bu kullanıcı adı daha önce alınmamış');
                 const hashedPassword = await bcrypt.hash(password, 10);
-                const insertQuery = `INSERT INTO stajer_users (adSoyad,username,email,telefon,password,role,staj_baslangic,staj_bitis,staj_durum) VALUES ('${adSoyad}','${username}','${email}','${telefon}','${hashedPassword}','${role}','${registerdate}','${staj_Bitis}','Devam Ediyor')`;
+                const insertQuery = `INSERT INTO stajer_user (username, email, telefon, role, password, staj_baslangic,staj_bitis,staj_durumu) VALUES ('${username}', '${email}', '${telefon}', '${role}', '${hashedPassword}', '${registerdate}','${staj_Bitis}','Devam Ediyor')`;
                 console.log(insertQuery);
                 connection.query(insertQuery, (err, result) => {
                     if (err) {
@@ -113,7 +114,6 @@ app.post('/register', (req, res) => {
                     }
                     console.log('Kullanıcı başarıyla eklendi');
                     const user = {
-                        adSoyad,
                         username,
                         email,
                         telefon,
@@ -139,9 +139,15 @@ app.get('/dashboard', (req, res) => {
         res.redirect('/');
     } else {
         const projeListQuery = `SELECT * FROM stajer_project WHERE username = '${user.username}'`;
-        const stajBitisQuery = `SELECT staj_baslangic, staj_bitis FROM stajer_users WHERE username = '${user.username}'`;
+        const stajBitisQuery = `SELECT staj_baslangic, staj_bitis FROM stajer_user WHERE username = '${user.username}'`;
         const projeBitisQuery = `SELECT project_start_date,project_end_date FROM stajer_project WHERE username = '${user.username}'`;
+        const roomsQuery = `SELECT * FROM rooms WHERE owner = '${user.username}'`;
         connection.query(projeListQuery, (err, result) => {
+            if (err) {
+                console.error('MySQL sorgu hatası', err);
+                return;
+            }
+        connection.query(roomsQuery, (err, rooms) => {
             if (err) {
                 console.error('MySQL sorgu hatası', err);
                 return;
@@ -178,26 +184,18 @@ app.get('/dashboard', (req, res) => {
                         pdiffDays,
                         pdiffTime,
                         progress,
-                        projeProgress
+                        projeProgress,
+                        roomListesi: rooms
                     };
                     if (diffDays == 0) {
-                        stajfinal = `UPDATE stajer_users SET staj_durumu = 'Bitti' WHERE username = '${user.username}'`;
-                        var stajgun = `UPDATE stajer_users SET staj_bitis = DATE_ADD(staj_bitis, INTERVAL 1 DAY) WHERE username = '${user.username}'`;
-                        connection.query(stajgun, (err, result) => {
-                            if (err) {
-                                console.error('MySQL sorgu hatası', err);
-                                return;
-                            }
-                            console.log('Staj günü eklendi');
-                            console.log(stajgun)
-                        });
+                        stajfinal = `UPDATE stajer_user SET staj_durumu = 'Bitti' WHERE username = '${user.username}'`;
                         connection.query(stajfinal, (err, result) => {
                             if (err) {
                                 console.error('MySQL sorgu hatası', err);
                                 return;
                             }
                             stajfinal = 'Bitti'; 
-                            res.redirect('/');
+                            res.redirect('/file/stajer/'+user.username+'/'+user.username+'.pdf');
                         });
                     } else if (stajdurum === user.staj_durumu) {
                         const doc = new PDFDocument();
@@ -236,6 +234,7 @@ app.get('/dashboard', (req, res) => {
                 });
             });
         });
+    });
     }
 });
 
@@ -271,7 +270,7 @@ app.post('/projects', (req, res) => {
             if( result.length > 0){
                 res.render('create-project', { error: 'project-name-error', baslangicTarihi: baslangicTarihi , bitisTarihi: bitisTarihi });
             }else{
-                const insertQuery = `INSERT INTO stajer_project (username, project_name, project_about, project_start_date, project_end_date, github_link) VALUES ('${user.username}', '${projeAdi}', '${projeAciklama}', '${baslangicTarihi}', '${bitisTarihi}', '${githubLink}')`;
+                const insertQuery = `INSERT INTO stajer_project (username, project_name, project_about, project_start_date, project_end_date, project_link) VALUES ('${user.username}', '${projeAdi}', '${projeAciklama}', '${baslangicTarihi}', '${bitisTarihi}', '${githubLink}')`;
                 connection.query(insertQuery, (err, result) => {
                     if (err) {
                         console.error('MySQL sorgu hatası', err);
@@ -561,7 +560,7 @@ app.get('/admin', function(req, res) {
         const randomLink = uuid.v4(); 
         const pageURL = `/admin/${randomLink}`; 
         app.get(pageURL, function(req, res) {
-        const userQuery = `SELECT * FROM stajer_users`;
+        const userQuery = `SELECT * FROM stajer_user`;
         const projeQuery = `SELECT * FROM stajer_project`;
         const iletisimQuery = `SELECT * FROM iletisim`;
         connection.query(userQuery, (err, result) => {
@@ -606,7 +605,7 @@ app.get('/admin/user/:username', (req, res) => {
         res.redirect('/dashboard');
     } else {
         const username = req.params.username;
-        const userQuery = `SELECT * FROM stajer_users WHERE username = '${username}'`;
+        const userQuery = `SELECT * FROM stajer_user WHERE username = '${username}'`;
         const projeQuery = `SELECT * FROM stajer_project WHERE username = '${username}'`;
         const iletisimQuery = `SELECT * FROM iletisim WHERE adSoyad = '${username}'`;
 
@@ -793,7 +792,97 @@ app.get('/file/stajer/:username/:dosyaAdi', (req, res) => {
         }
 });
 
+
+app.get('/room-create', (req, res) => {
+    const user = req.session.user;
+    if (!user) {
+      return res.redirect('/');
+    }
+    res.render('create-room');
+  });
+
+app.post('/rooms', (req, res) => {
+  let newRoom = {
+    name: req.body.name,
+    bio: req.body.bio,
+    owner: req.session.user.username
+  };
+  connection.query('INSERT INTO rooms SET ?', newRoom, (err, result) => {
+    console.log('Oda eklendi');
+    res.redirect('dashboard');
+  });
+});
+
+app.post('/rooms/:id', (req, res) => {
+    const user = req.session.user;
+    if (!user) {
+      return res.redirect('/');
+    }
+  
+    const roomId = req.params.id;
+    connection.query('SELECT * FROM rooms WHERE id = ?', roomId, (err, rows) => {
+      if (err) throw err;
+  
+      const room = rows[0];
+      if (!room) {
+        return res.redirect('/rooms');
+      }
+  
+      connection.query('SELECT * FROM messages WHERE id = ?', roomId, (err, rows) => {
+        if (err) throw err;
+        room.messages = rows;
+  
+        res.render('room', { roomId, room , user: req.session.user });
+      });
+    });
+  });
+  
+  
+  
+  
+app.post('/message', (req, res) => {
+  const user = req.session.user;
+  if (!user) {
+    return res.redirect('/');
+  }
+  const roomId = req.body.roomId;
+  const messageData = {
+    text: req.body.msg,
+    time: new Date().toLocaleString(),
+    username: req.session.user.username, 
+    id: roomId,
+    RoomName: req.body.RoomName,
+  };
+  connection.query('INSERT INTO messages SET ?', messageData, (err, result) => {
+    if (err) {
+      console.log(err);
+      res.status(500).send('Hata oluştu.');
+    } else {
+      console.log('Mesaj eklendi ID: ' + result.insertId);
+      io.emit('message', messageData);
+      console.log(messageData);
+    }
+  });
+
+});  
+  
+
+
+io.on('connection', (socket) => {
+    console.log('Bir kullanıcı bağlandı.')
+  
+    socket.on('disconnect', () => {
+      console.log('Bir kullanıcı ayrıldı.');
+    });
+  
+    socket.on('message', (messageData) => {
+      io.emit('message', messageData);
+    });
+  });
+
+
     
-app.listen(3000, () => {
-    console.log('Server 3000 portunda çalışıyor');
+
+http.listen(3000, () => {
+  console.log('Server çalışıyor. http://localhost:3000 adresinden erişebilirsiniz.');
 });
