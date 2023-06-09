@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Oda <%= room.name %> </title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.0/css/bootstrap.min.css">
+</head>
+<style >
+    .chat-messages {
+  height: 300px; 
+  overflow-y: scroll;
+}
+
+</style>
+
+<body>
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title"><%= room.name %></h5>
+            <p class="card-text"><%= room.bio %></p>
+            <div class="row">
+              <div class="col-md-10">
+                <div id="chat-messages" class="chat-messages">
+                    <% if (room.messages && room.messages.length) { %>
+                        <% for (var i=0; i< room.messages.length; i++) { %>
+                            <div class="message">
+                                <p class="meta"><%= room.messages[i].username %> : <span><%= room.messages[i].time %></span></p>
+                                <p class="text"><%= room.messages[i].text %></p>
+                            </div>
+                        <% } %>
+                    <% } else { %>
+                        <p>Henüz mesaj yok.</p>
+                    <% } %>
+                </div>
+                <form id="chat-form">
+                    <div class="mb-3">
+                      <label for="message-text" class="form-label">Mesaj:</label>
+                      <input type="text" class="form-control" id="message-text"  name="msg" required>
+                      <input type="hidden" id="room-id" name="roomId" value="<%= room.id %>">
+                      <input type="hidden" id="room-name" name="RoomName" value="<%= room.name %>">
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="gonder">Gönder</button>
+                  </form>
+            </div>
+            
+            </div>
+            <div class="mt-3">
+                <% if (room.owner === user.username) { %>
+                <a href="/room/<%= room.id %>/edit" class="btn btn-warning mr-2">Düzenle</a>
+                <a href="/room/<%= room.id %>/delete" class="btn btn-danger">Sil</a>
+            </div>
+            <% } %>
+
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+
+    const socket = io();
+    const chatForm = document.getElementById('chat-form');
+    const messageText = document.getElementById('message-text');
+    const chatMessages = document.getElementById('chat-messages');
+    const roomName = '<%= room.name %>';
+    const rommId = '<%= room.id %>'; // böyle çekiyor mu bu arada
+    
+    socket.on('message', (message) => {
+
+      if (rommId === message.id) {
+        outputMessage(message);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      
+    });
+
+
+    const input_kutu = document.getElementById('message-text');
+    const submit_button = document.getElementById('gonder');
+let timeSecond = 3;
+let timer;
+
+submit_button.addEventListener('click', function() {
+  timeSecond = 3;
+});
+
+input_kutu.addEventListener('keypress', function() {
+  timeSecond = 3;
+});
+
+function disableInput() {
+  input_kutu.disabled = true;
+  submit_button.disabled = true;
+}
+
+function enableInput() {
+  input_kutu.disabled = false;
+  input_kutu.value = '';
+  submit_button.disabled = false;
+}
+
+function startTimer() {
+  disableInput();
+  input_kutu.value = timeSecond + ' saniye sonra mesaj gönderebilirsiniz.';
+  timer = setInterval(() => {
+    timeSecond--;
+    if (timeSecond === 0) {
+      clearInterval(timer);
+      enableInput();
+    } else {
+      input_kutu.value = timeSecond + ' saniye sonra mesaj gönderebilirsiniz.';
+    }
+  }, 1000);
+}
+
+startTimer();
+
+function outputMessage(message) {
+  const div = document.createElement('div');
+  div.classList.add('message');
+  div.innerHTML = `<p class="meta">${message.username} : <span>${message.time}</span></p>
+  <p class="text">${message.text}</p>`;
+  document.querySelector('.chat-messages').appendChild(div);
+}
+
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  const messageInput = document.getElementById('message-text');
+  const messageText = messageInput.value;
+  messageInput.value = '';
+
+  const messageData = {
+    msg: messageText,
+    time: new Date().toLocaleString(),
+    owner: '<%= room.owner %>',
+    roomId : '<%= room.id %>',
+    RoomName : '<%= room.name %>'
+  };
+  console.log(messageData);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/message', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.send(JSON.stringify(messageData));
+
+  startTimer();
+});
+
+</script>
+</body> 
+</html>
